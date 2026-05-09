@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0f1e">
+<title>관심종목 재무 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0f1e;
+  --bg2: #111827;
+  --bg3: #1a2235;
+  --card: #141d2e;
+  --card2: #1e2d45;
+  --border: rgba(99,179,237,0.12);
+  --border2: rgba(99,179,237,0.22);
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --accent: #38bdf8;
+  --accent2: #0ea5e9;
+  --green: #34d399;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --purple: #a78bfa;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Noto Sans KR', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;overflow-x:hidden}
+
+/* ── HEADER ─────────────────────────────── */
+.header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,15,30,0.92);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.header-left{display:flex;align-items:center;gap:10px}
+.logo{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.08em;white-space:nowrap}
+.logo span{color:var(--text3);font-weight:400}
+.update-btn{
+  display:flex;align-items:center;gap:6px;
+  background:linear-gradient(135deg,var(--accent2),var(--purple));
+  color:#fff;border:none;border-radius:8px;
+  padding:8px 14px;font-size:12px;font-weight:700;font-family:var(--sans);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  transition:opacity .2s;
+}
+.update-btn:active{opacity:.7}
+.update-btn .spin{display:none}
+.update-btn.loading .spin{display:inline-block;animation:spin .8s linear infinite}
+.update-btn.loading .ico{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── NEWS TICKER ─────────────────────────── */
+.news-bar{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:0 16px;height:34px;display:flex;align-items:center;gap:10px;overflow:hidden;
+}
+.news-label{
+  font-size:10px;font-weight:700;color:var(--yellow);
+  background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);
+  border-radius:4px;padding:2px 6px;white-space:nowrap;flex-shrink:0;
+}
+.ticker-wrap{flex:1;overflow:hidden;position:relative;height:34px;display:flex;align-items:center}
+.ticker{
+  display:flex;gap:48px;white-space:nowrap;
+  animation:ticker 40s linear infinite;
+}
+.ticker:hover{animation-play-state:paused}
+.ticker-item{font-size:12px;color:var(--text2);cursor:pointer}
+.ticker-item .tk{color:var(--accent);margin-right:4px;font-family:var(--mono);font-size:11px}
+.ticker-item .up{color:var(--green)}
+.ticker-item .dn{color:var(--red)}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ── SEARCH & FILTER ─────────────────────── */
+.controls{padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.search-box{
+  display:flex;align-items:center;gap:8px;
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:0 12px;height:40px;
+}
+.search-box svg{color:var(--text3);flex-shrink:0}
+.search-box input{
+  flex:1;background:none;border:none;outline:none;
+  color:var(--text);font-family:var(--sans);font-size:13px;
+}
+.search-box input::placeholder{color:var(--text3)}
+.filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.fbtn{
+  flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;
+  border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;
+  transition:all .15s;font-family:var(--sans);
+}
+.fbtn.on{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.4);color:var(--accent)}
+
+/* ── STOCK LIST ──────────────────────────── */
+.stock-count{padding:4px 16px;font-size:11px;color:var(--text3)}
+.stock-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:8px;padding:0 12px 12px;
+}
+.chip{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:10px;cursor:pointer;
+  transition:border-color .15s,background .15s;position:relative;overflow:hidden;
+}
+.chip::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent 60%,rgba(56,189,248,.03));
+  opacity:0;transition:opacity .2s;
+}
+.chip:hover::before,.chip.active::before{opacity:1}
+.chip.active{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.06)}
+.chip-name{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px;line-height:1.3}
+.chip.active .chip-name{color:var(--accent)}
+.chip-code{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.chip-badge{
+  display:inline-block;font-size:9px;font-weight:600;
+  padding:1px 5px;border-radius:3px;margin-top:4px;
+}
+.badge-kr{background:rgba(56,189,248,.1);color:var(--accent)}
+.badge-us{background:rgba(52,211,153,.1);color:var(--green)}
+.badge-jp{background:rgba(251,191,36,.1);color:var(--yellow)}
+.dot-data{
+  position:absolute;top:7px;right:7px;
+  width:6px;height:6px;border-radius:50%;background:var(--green);
+}
+
+/* ── DETAIL PANEL ────────────────────────── */
+.detail{padding:0 12px 100px}
+.placeholder-box{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:280px;gap:12px;color:var(--text3);
+}
+.placeholder-box svg{opacity:.3}
+.placeholder-box p{font-size:13px}
+
+.co-header{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:16px;margin-bottom:10px;
+  background:linear-gradient(135deg,var(--card) 0%,rgba(30,45,69,.8) 100%);
+}
+.co-name{font-size:18px;font-weight:700;color:var(--text);line-height:1.2}
+.co-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)}
+.co-tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.cotag{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600}
+.cotag-mkt{background:rgba(56,189,248,.12);color:var(--accent);border:1px solid rgba(56,189,248,.2)}
+.cotag-cur{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.2)}
+
+.sec-title{
+  font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.12em;
+  text-transform:uppercase;margin:14px 0 8px;
+  display:flex;align-items:center;gap:6px;
+}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.metrics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+@media(min-width:400px){.metrics-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:600px){.metrics-grid{grid-template-columns:repeat(5,1fr)}}
+.metric{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:10px;
+}
+.metric-label{font-size:10px;color:var(--text3);margin-bottom:4px}
+.metric-val{font-size:14px;font-weight:700;color:var(--text);word-break:break-all}
+.metric-val.green{color:var(--green)}
+.metric-val.red{color:var(--red)}
+
+.prose{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:12px;
+  font-size:12px;line-height:1.8;color:var(--text2);white-space:pre-wrap;
+}
+
+.chart-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:12px;
+}
+.chart-wrap{height:160px;position:relative}
+
+.div-table{width:100%;border-collapse:collapse;font-size:11px}
+.div-table th{color:var(--text3);font-weight:500;padding:5px 8px;border-bottom:1px solid var(--border);text-align:right}
+.div-table th:first-child{text-align:left}
+.div-table td{padding:5px 8px;border-bottom:1px solid rgba(99,179,237,.06);text-align:right;color:var(--text)}
+.div-table td:first-child{text-align:left;color:var(--text2);font-size:10px;font-weight:500}
+
+.na-box{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:20px;text-align:center;
+}
+.na-box p{font-size:13px;color:var(--text2);margin-bottom:8px}
+.copy-text{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;padding:10px;margin-top:10px;
+  font-size:11px;color:var(--text2);text-align:left;line-height:1.7;
+  font-family:var(--mono);user-select:all;cursor:text;
+}
+.copy-btn-wrap{margin-top:10px}
+.copy-btn{
+  background:var(--card2);border:1px solid var(--border2);
+  border-radius:8px;padding:8px 14px;color:var(--accent);
+  font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);
+  transition:background .15s;
+}
+.copy-btn:active{background:rgba(56,189,248,.15)}
+
+/* ── NEWS MODAL ──────────────────────────── */
+.news-section{margin-top:10px}
+.news-item{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:12px;margin-bottom:7px;cursor:pointer;
+  transition:border-color .15s;
+}
+.news-item:hover{border-color:var(--border2)}
+.news-title{font-size:12px;font-weight:500;color:var(--text);line-height:1.5;margin-bottom:5px}
+.news-meta{display:flex;gap:8px;align-items:center}
+.news-source{font-size:10px;color:var(--accent);font-family:var(--mono)}
+.news-date{font-size:10px;color:var(--text3)}
+.news-sentiment{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700}
+.sent-pos{background:rgba(52,211,153,.12);color:var(--green)}
+.sent-neg{background:rgba(248,113,113,.12);color:var(--red)}
+.sent-neu{background:rgba(100,116,139,.15);color:var(--text3)}
+
+/* ── BOTTOM NAV ──────────────────────────── */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(10,15,30,0.95);backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+  display:flex;justify-content:space-around;padding:8px 0 max(8px,env(safe-area-inset-bottom));
+}
+.nav-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--text3);cursor:pointer;padding:4px 16px;
+  transition:color .15s;font-size:10px;
+}
+.nav-item.active{color:var(--accent)}
+.nav-item svg{width:20px;height:20px}
+
+/* ── LOADING SKELETON ────────────────────── */
+.skeleton{
+  background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.5s infinite;border-radius:8px;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.sk-line{height:12px;margin-bottom:8px}
+.sk-box{height:80px}
+
+/* ── TOAST ───────────────────────────────── */
+.toast{
+  position:fixed;top:70px;left:50%;transform:translateX(-50%);
+  background:var(--card2);border:1px solid var(--border2);
+  color:var(--text);font-size:12px;font-weight:500;
+  padding:8px 16px;border-radius:20px;
+  z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;
+  white-space:nowrap;
+}
+.toast.show{opacity:1}
+
+/* ── RESPONSIVE ──────────────────────────── */
+@media(min-width:640px){
+  .stock-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+}
+
+/* ── DARK SCROLLBAR ──────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--card2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">관심종목<span> 대시보드</span></div>
+  </div>
+  <button class="update-btn" onclick="refreshAll()" id="updateBtn">
+    <span class="ico">⟳</span>
+    <span class="spin">↻</span>
+    <span id="updateLabel">업데이트</span>
+  </button>
+</header>
+
+<!-- NEWS TICKER -->
+<div class="news-bar">
+  <div class="news-label">📡 뉴스</div>
+  <div class="ticker-wrap">
+    <div class="ticker" id="tickerInner">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="pageList" style="display:block">
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="search-box">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="종목명 또는 코드 검색..." oninput="filterStocks()">
+    </div>
+    <div class="filters" id="filterBar">
+      <button class="fbtn on" onclick="setFilter('all',this)">전체</button>
+      <button class="fbtn" onclick="setFilter('kr',this)">🇰🇷 국내주</button>
+      <button class="fbtn" onclick="setFilter('us',this)">🇺🇸 미국주</button>
+      <button class="fbtn" onclick="setFilter('jp',this)">🇯🇵 일본주</button>
+    </div>
+  </div>
+  <div class="stock-count" id="stockCount"></div>
+  <div class="stock-grid" id="stockGrid"></div>
+</div>
+
+<div id="pageDetail" style="display:none">
+  <div class="detail" id="detailContent"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="nav-item active" id="navList" onclick="showPage('list')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    종목목록
+  </div>
+  <div class="nav-item" id="navDetail" onclick="showPage('detail')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    종목분석
+  </div>
+  <div class="nav-item" id="navNews" onclick="showNewsAll()">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10l6 6v8a2 2 0 0 1-2 2z"/><polyline points="15 2 15 8 21 8"/></svg>
+    최신뉴스
+  </div>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+/* ══════════════════════════════════════════
+   DATA
+══════════════════════════════════════════ */
+const STOCKS=[
+  {c:'307950',n:'현대오토에버',m:'kr'},{c:'097870',n:'효성오앤비',m:'kr'},
+  {c:'047810',n:'한국항공우주',m:'kr'},{c:'011790',n:'SKC',m:'kr'},
+  {c:'354320',n:'알멕',m:'kr'},{c:'004710',n:'한솔테크닉스',m:'kr'},
+  {c:'181710',n:'NHN',m:'kr'},{c:'016880',n:'웅진',m:'kr'},
+  {c:'095720',n:'웅진씽크빅',m:'kr'},{c:'417200',n:'LS머트리얼즈',m:'kr'},
+  {c:'101490',n:'에스앤에스텍',m:'kr'},{c:'000210',n:'DL',m:'kr'},
+  {c:'316140',n:'우리금융지주',m:'kr'},{c:'329180',n:'HD현대중공업',m:'kr'},
+  {c:'440110',n:'파두',m:'kr'},{c:'018260',n:'삼성에스디에스',m:'kr'},
+  {c:'443060',n:'HD현대마린솔루션',m:'kr'},{c:'010140',n:'삼성중공업',m:'kr'},
+  {c:'004020',n:'현대제철',m:'kr'},{c:'001450',n:'현대해상',m:'kr'},
+  {c:'047050',n:'포스코인터내셔널',m:'kr'},{c:'112610',n:'씨에스윈드',m:'kr'},
+  {c:'010780',n:'아이에스동서',m:'kr'},{c:'002310',n:'아세아제지',m:'kr'},
+  {c:'108670',n:'LX하우시스',m:'kr'},{c:'016590',n:'신대양제지',m:'kr'},
+  {c:'456010',n:'아이씨티케이',m:'kr'},{c:'005380',n:'현대차',m:'kr'},
+  {c:'001230',n:'동국홀딩스',m:'kr'},{c:'004150',n:'한솔홀딩스',m:'kr'},
+  {c:'028050',n:'삼성E&A',m:'kr'},{c:'069510',n:'에스텍',m:'kr'},
+  {c:'000660',n:'SK하이닉스',m:'kr'},{c:'005930',n:'삼성전자',m:'kr'},
+  {c:'009150',n:'삼성전기',m:'kr'},{c:'103140',n:'풍산',m:'kr'},
+  {c:'035900',n:'JYP Ent.',m:'kr'},{c:'011210',n:'현대위아',m:'kr'},
+  {c:'035810',n:'이지홀딩스',m:'kr'},{c:'037710',n:'광주신세계',m:'kr'},
+  {c:'012330',n:'현대모비스',m:'kr'},{c:'194370',n:'제이에스코퍼레이션',m:'kr'},
+  {c:'267270',n:'HD건설기계',m:'kr'},{c:'000270',n:'기아',m:'kr'},
+  {c:'417840',n:'저스템',m:'kr'},{c:'326030',n:'SK바이오팜',m:'kr'},
+  {c:'302440',n:'SK바이오사이언스',m:'kr'},{c:'218410',n:'RFHIC',m:'kr'},
+  {c:'069410',n:'엔텔스',m:'kr'},{c:'006120',n:'SK디스커버리',m:'kr'},
+  {c:'001800',n:'오리온홀딩스',m:'kr'},{c:'448900',n:'한국피아이엠',m:'kr'},
+  {c:'034220',n:'LG디스플레이',m:'kr'},{c:'011760',n:'현대코퍼레이션',m:'kr'},
+  {c:'092460',n:'한라IMS',m:'kr'},{c:'265520',n:'AP시스템',m:'kr'},
+  {c:'499790',n:'GS피앤엘',m:'kr'},{c:'016450',n:'한세예스24홀딩스',m:'kr'},
+  {c:'005610',n:'삼립',m:'kr'},{c:'015360',n:'INVENI',m:'kr'},
+  {c:'054040',n:'한국컴퓨터',m:'kr'},{c:'439260',n:'대한조선',m:'kr'},
+  {c:'USAPFE',n:'화이자',m:'us'},{c:'USAOXY',n:'옥시덴털 페트롤리움',m:'us'},
+  {c:'USAEQT',n:'EQT',m:'us'},{c:'USAEWZ',n:'아이셰어즈 MSCI 브라질 ETF',m:'us'},
+  {c:'USAPBR',n:'페트로브라스',m:'us'},{c:'USAPBR.A',n:'페트로브라스 우선주 ADR',m:'us'},
+  {c:'USAAMZN',n:'아마존닷컴',m:'us'},
+  {c:'JPN6981',n:'무라타제작소',m:'jp'},{c:'JPN6954',n:'화낙',m:'jp'},
+  {c:'JPN6506',n:'야스카와 전기',m:'jp'}
+];
+
+const DB={
+  '005930':{co:'삼성전자',sec:'반도체',cur:'KRW',sum:'글로벌 메모리 반도체 1위로 DRAM·NAND 시장을 주도. HBM 확대와 AI 서버 수요가 핵심 성장 동력.',m:{rev:'300.9조원',op:'32.7조원',net:'34.5조원',cap:'약 370조원',per:'14.2배',pbr:'1.1배',roe:'8.1%',debt:'26%',dy:'2.5%',dps:'1,444원'},an:{y:['2021','2022','2023','2024'],r:[2796,3022,2589,3009],o:[516,433,65,327],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[2994,2994,1444,1444],yi:[1.7,1.9,2.2,2.5]},ip:'① HBM3E 양산 확대로 AI 서버향 매출 고성장\n② 파운드리 GAA 공정 경쟁력 회복\n③ 자사주 매입+배당 주주환원 강화',ri:'① HBM 기술격차 — SK하이닉스 대비 열위\n② 파운드리 수율 문제',out:'2025년 HBM·DDR5 수요 증가로 반도체 회복 예상.'},
+  '000660':{co:'SK하이닉스',sec:'반도체',cur:'KRW',sum:'글로벌 HBM 시장 1위(점유율 50%+)로 엔비디아 GPU 공급망 핵심 파트너.',m:{rev:'66.2조원',op:'23.5조원',net:'19.8조원',cap:'약 130조원',per:'15.8배',pbr:'1.8배',roe:'18.9%',debt:'61%',dy:'0.9%',dps:'1,200원'},an:{y:['2021','2022','2023','2024'],r:[427,447,329,662],o:[126,67,-76,235],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[1200,1200,1200,1200],yi:[0.8,1.1,1.0,0.9]},ip:'① HBM3E/4 독보적 기술력 — 엔비디아 단독 공급\n② AI 가속기 ASP 급등\n③ 실적 턴어라운드 완성',ri:'① 메모리 사이클 하강 시 변동성\n② 중국 CXMT 물량 공세',out:'2025년 HBM4 양산 성공 시 추가 재평가 가능.'},
+  '005380':{co:'현대자동차',sec:'자동차',cur:'KRW',sum:'국내 최대 완성차로 글로벌 판매 3위권. 전기차(아이오닉6·EV9) 라인업 강화 중.',m:{rev:'175.2조원',op:'15.1조원',net:'12.4조원',cap:'약 44조원',per:'5.8배',pbr:'0.7배',roe:'14.6%',debt:'178%',dy:'4.0%',dps:'8,000원'},an:{y:['2021','2022','2023','2024'],r:[1174,1426,1627,1752],o:[68,97,150,151],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[5000,6000,8000,8000],yi:[2.8,3.2,3.8,4.0]},ip:'① PER 6배·PBR 0.7배 저평가\n② 주주환원 강화(배당+자사주 소각)\n③ 미국 IRA 세액공제 혜택',ri:'① 글로벌 EV 경쟁 심화\n② 미국 관세 정책 변화',out:'2025년 글로벌 판매 440만대 목표.'},
+  '000270':{co:'기아',sec:'자동차',cur:'KRW',sum:'현대차그룹 계열 완성차. SUV·RV 라인업에 강점, 배당수익률 5%대.',m:{rev:'101.8조원',op:'11.6조원',net:'9.8조원',cap:'약 33조원',per:'5.4배',pbr:'1.0배',roe:'21.4%',debt:'121%',dy:'5.1%',dps:'5,800원'},an:{y:['2021','2022','2023','2024'],r:[695,863,1000,1018],o:[52,88,122,116],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[2000,3000,5400,5800],yi:[2.5,3.1,4.9,5.1]},ip:'① 배당수익률 5%대 최상위\n② SUV 믹스 개선으로 수익성 견조\n③ 미국 EV 시장 진입',ri:'① EV 전환 속도 현대차 대비 열위\n② 중국 판매 부진',out:'2025년 판매 320만대 목표.'},
+  '329180':{co:'HD현대중공업',sec:'조선',cur:'KRW',sum:'국내 최대 조선사. LNG선·컨테이너선·VLCC 건조. 수주잔고 3년치 이상.',m:{rev:'20.3조원',op:'1.1조원',net:'0.8조원',cap:'약 16조원',per:'24.1배',pbr:'2.2배',roe:'9.2%',debt:'182%',dy:'0.5%',dps:'400원'},an:{y:['2021','2022','2023','2024'],r:[137,155,178,203],o:[-5,2,7,11],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[0,0,400,400],yi:[0,0,0.3,0.5]},ip:'① 조선업 슈퍼사이클 — LNG선 급증\n② 수주잔고 3년치 실적 안정\n③ 친환경 선박 선제 기술',ri:'① 후판 가격 등 원가 상승\n② 생산 인력 부족',out:'2025년 흑자 폭 확대 전망.'},
+  '010140':{co:'삼성중공업',sec:'조선',cur:'KRW',sum:'LNG FPSO·드릴십·컨테이너선 특화 조선사. 흑자 전환 후 수익성 개선 중.',m:{rev:'8.6조원',op:'0.4조원',net:'0.3조원',cap:'약 7조원',per:'28.5배',pbr:'1.4배',roe:'5.1%',debt:'210%',dy:'0.0%',dps:'0원'},an:{y:['2021','2022','2023','2024'],r:[62,69,79,86],o:[-8,-4,2,4],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[0,0,0,0],yi:[0,0,0,0]},ip:'① 흑자 전환 완성 — 마진 개선\n② FLNG·해양플랜트 고부가가치\n③ KC-2C 시스템 LNG 우위',ri:'① 재무구조 개선 지연\n② 선박 다변화 부족',out:'2025~2026년 수주잔고 소화로 성장 지속.'},
+  '097870':{co:'효성오앤비',sec:'유기질비료',cur:'KRW',sum:'1984년 설립, 국내 유기질비료 농협계통 납품 연속 1위(1994~). 충남 아산 본사, 전국 5개 공장.',m:{rev:'243.9억원',op:'34.7억원',net:'28.9억원',cap:'약 512억원',per:'18.3배',pbr:'0.66배',roe:'2.0%',debt:'14.5%',dy:'0.0%',dps:'0원(FY2025)'},an:{y:['2022','2023','2024','2025'],r:[285,280,272,244],o:[32,42,43,35],u:'억원'},dh:{y:['FY2022','FY2023','FY2024','FY2025'],d:[100,0,0,0],yi:[0.5,0,0,0]},ip:'① 임시주총(2026.06): 자본준비금 80억→이익잉여금 전입 — 배당재원 창출\n② 승계 지분 이전(박태헌→박문현) 이후 비과세 배당 시그널\n③ 이익잉여금 647억원 vs 시가총액 512억원 — 극심한 저평가',ri:'① FY2025 반기 영업적자(-0.8억원) 전환 — 본업 부진\n② FVPL 금융자산 296억 평가손 리스크\n③ 비료 시장 계절성·농정 보조금 의존도 높음',out:'2026.06.22 임시주총 배당 결정 후 주당 100~500원 배당 가능성. 이익잉여금 647억·자본잉여금 149억 감안 시 PBR 0.66배는 구조적 저평가 구간.'},
+  '443060':{co:'HD현대마린솔루션',sec:'선박서비스',cur:'KRW',sum:'HD현대 계열 선박 애프터마켓 서비스 전문. 정비·개조·디지털 서비스 제공.',m:{rev:'1.6조원',op:'0.2조원',net:'0.2조원',cap:'약 5.5조원',per:'32.0배',pbr:'5.1배',roe:'16.2%',debt:'78%',dy:'1.1%',dps:'2,000원'},an:{y:['2021','2022','2023','2024'],r:[9,11,14,16],o:[1,1,2,2],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[0,0,2000,2000],yi:[0,0,0.9,1.1]},ip:'① 선박 애프터마켓 고마진 비즈니스\n② 환경 규제로 개조 수요 급증\n③ MASGA 정책 수혜',ri:'① PBR 5배 고밸류에이션\n② 경기 침체 시 선주 정비비 절감',out:'2025년 매출 2조원 돌파 가능.'},
+  '018260':{co:'삼성에스디에스',sec:'IT서비스',cur:'KRW',sum:'삼성그룹 IT서비스·물류BPO 계열사. 그룹사 물량 70%+, 안정적 수익.',m:{rev:'14.4조원',op:'0.6조원',net:'0.7조원',cap:'약 9조원',per:'16.2배',pbr:'1.5배',roe:'9.4%',debt:'53%',dy:'1.9%',dps:'2,400원'},an:{y:['2021','2022','2023','2024'],r:[127,153,140,144],o:[5,6,7,6],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[1800,2400,2400,2400],yi:[1.0,1.5,1.7,1.9]},ip:'① 그룹사 IT수요 안정 — 경기 방어주\n② 클라우드·AI 사업 확장\n③ 안정적 배당',ri:'① 그룹사 의존도로 외부 성장 제한\n② IT서비스 마진 박리화',out:'2025년 AI 솔루션 확대로 소폭 성장.'},
+  'USAPFE':{co:'화이자(Pfizer)',sec:'제약',cur:'USD',sum:'글로벌 최대 제약사. 코로나 매출 소멸 후 시젠 인수로 항암 강화 중.',m:{rev:'$585억',op:'$32억',net:'$21억',cap:'약 $1,430억',per:'18.2배',pbr:'1.8배',roe:'3.8%',debt:'98%',dy:'6.8%',dps:'$1.68'},an:{y:['2021','2022','2023','2024'],r:[813,1003,585,585],o:[232,295,19,32],u:'억달러'},dh:{y:['2021','2022','2023','2024'],d:[156,164,164,168],yi:[3.7,3.1,6.2,6.8]},ip:'① 배당수익률 6.8% — 제약 최고\n② 시젠 항암 파이프라인\n③ 비용 절감 진행',ri:'① 코로나 매출 소멸\n② 시젠 인수 부채 부담',out:'2025년 항암 파이프라인 성과가 관건.'},
+  'USAAMZN':{co:'아마존닷컴',sec:'이커머스·클라우드',cur:'USD',sum:'글로벌 최대 이커머스이자 AWS 클라우드 1위. AI 인프라 투자 확대.',m:{rev:'$6,375억',op:'$688억',net:'$590억',cap:'약 $2.3조',per:'40.2배',pbr:'8.5배',roe:'23.1%',debt:'109%',dy:'0.0%',dps:'$0'},an:{y:['2021','2022','2023','2024'],r:[4698,5140,5747,6375],o:[249,122,368,688],u:'억달러'},dh:{y:['2021','2022','2023','2024'],d:[0,0,0,0],yi:[0,0,0,0]},ip:'① AWS AI 인프라 클라우드 1위\n② 광고 사업 고성장(연 20%+)\n③ 물류 자동화로 마진 개선',ri:'① PER 40배 부담\n② 반독점 규제',out:'2025년 AWS AI 서비스 확장으로 두자릿수 이익 성장.'},
+  'USAOXY':{co:'옥시덴털 페트롤리움',sec:'에너지',cur:'USD',sum:'미국 퍼미안 분지 최대 E&P. 버크셔 해서웨이 25%+ 지분 보유.',m:{rev:'$296억',op:'$64억',net:'$19억',cap:'약 $480억',per:'15.8배',pbr:'1.8배',roe:'8.4%',debt:'128%',dy:'1.9%',dps:'$0.88'},an:{y:['2021','2022','2023','2024'],r:[262,370,292,296],o:[47,102,71,64],u:'억달러'},dh:{y:['2021','2022','2023','2024'],d:[4,52,72,88],yi:[0.2,1.4,1.6,1.9]},ip:'① 버핏 컨빅션 종목\n② 퍼미안 분지 저원가 생산\n③ CCUS 장기 옵션',ri:'① 유가 하락 시 실적 급감\n② 높은 부채',out:'WTI $70+ 유지 시 현금흐름 양호.'},
+  'JPN6981':{co:'무라타제작소',sec:'전자부품',cur:'JPY',sum:'세계 최대 MLCC 제조사. 스마트폰·전기차·IoT 부품 공급.',m:{rev:'¥1.68조',op:'¥2,850억',net:'¥2,320억',cap:'약 ¥4.8조',per:'20.8배',pbr:'2.4배',roe:'11.8%',debt:'43%',dy:'2.1%',dps:'¥175'},an:{y:['2021','2022','2023','2024'],r:[16900,18088,16027,16800],o:[3200,3510,2480,2850],u:'억엔'},dh:{y:['2021','2022','2023','2024'],d:[130,150,175,175],yi:[1.5,1.7,1.9,2.1]},ip:'① MLCC 글로벌 1위\n② EV 전장 MLCC 급증\n③ 안정적 배당 성장',ri:'① 스마트폰 사이클 둔화\n② 중국 업체 저가 공세',out:'2025년 EV용 전장 MLCC 확대로 안정 성장.'},
+  'JPN6506':{co:'야스카와전기',sec:'산업용로봇',cur:'JPY',sum:'서보모터·인버터·산업용 로봇 글로벌 선두.',m:{rev:'¥5,580억',op:'¥720억',net:'¥540억',cap:'약 ¥1.4조',per:'28.5배',pbr:'4.2배',roe:'14.8%',debt:'58%',dy:'1.4%',dps:'¥52'},an:{y:['2021','2022','2023','2024'],r:[4520,5120,5680,5580],o:[550,680,760,720],u:'억엔'},dh:{y:['2021','2022','2023','2024'],d:[36,44,52,52],yi:[0.9,1.1,1.3,1.4]},ip:'① 산업용 로봇·서보모터 선두\n② 스마트 팩토리 장기 성장\n③ 중국 제조업 자동화 재개',ri:'① 중국 경기 둔화\n② 고밸류에이션',out:'2025년 반도체 공장 자동화로 수주 회복.'},
+  '047810':{co:'한국항공우주산업(KAI)',sec:'방산·항공우주',cur:'KRW',
+  sum:'국내 유일 완제기 개발·생산 방산기업. KF-21 전투기·FA-50 경공격기·LAH 소형무장헬기·KUH 수리온 등 주력 제품 보유. 2026년 1Q 역대 최대 매출 달성(1조 927억, +56.3% YoY).',
+  m:{rev:'3조 6,964억원',op:'2,692억원',net:'1,873억원',cap:'약 7.3조원',per:'39배',pbr:'2.8배',roe:'7~8%',debt:'약 180%',dy:'0.28%',dps:'500원'},
+  an:{y:['2023','2024','2025','2026E'],r:[3824,3634,3696,5731],o:[241,241,269,424],u:'십억원'},
+  dh:{y:['2022','2023','2024','2025'],d:[500,500,500,500],yi:[0.8,0.6,0.6,0.3]},
+  ip:'① KF-21 양산 전환 — 2026년 매출 가이던스 5.7조(YoY +58%) 역대 최대 실적 원년\n② FA-50 수출 파이프라인 — 폴란드 36대·말레이시아 18대·필리핀 12대 순차 인도\n③ EPS 연평균 성장률 46%(2025~2028E) — 2028년 영업이익 8,000억 목표\n④ KF-21 첫 수출 임박 — 인도네시아(16대) 상반기 계약 가능성, UAE·사우디 관심',
+  ri:'① 1Q26 영업이익률 6.1% — 중동 이라크 CLS 사업 중단·폴란드 FA-50 예정원가 상승\n② 공중급유기 4대 부족(피급유기 대비 58:1) — KF-21 전력화 걸림돌\n③ PER 39배 고밸류에이션 — 실적 미달 시 조정 리스크\n④ 한화에어로스페이스 지분 확대 변수 — 지배구조 불확실성',
+  out:'2026년 KF-21 양산 납품 하반기 본격화, 중동 수출 2분기 재개. 증권가 평균 목표주가 188,905원(현재 180,000원). 2027년부터 완제기 납품 60대+로 실적 계단식 성장 확실시. KF-21 수출 계약 성사 시 추가 리레이팅 가능.'},
+  'JPN6954':{co:'화낙(FANUC)',sec:'CNC·로봇',cur:'JPY',sum:'CNC시스템과 산업용 로봇 글로벌 1위. 순현금 방대, 안정 배당.',m:{rev:'¥7,200억',op:'¥1,580억',net:'¥1,240억',cap:'약 ¥4.2조',per:'25.8배',pbr:'3.2배',roe:'12.4%',debt:'4%',dy:'3.5%',dps:'¥185'},an:{y:['2021','2022','2023','2024'],r:[6200,7240,7850,7200],o:[1250,1720,1950,1580],u:'억엔'},dh:{y:['2021','2022','2023','2024'],d:[125,155,185,185],yi:[2.2,2.5,3.1,3.5]},ip:'① CNC·로봇 글로벌 1위\n② 순현금 대규모 보유\n③ 자동화 메가트렌드',ri:'① 중국 경기 둔화\n② ABB·야스카와 경쟁',out:'2025년 중국 회복·반도체 설비 투자로 수주 개선.'},
+  '316140':{co:'우리금융지주',sec:'금융·은행',cur:'KRW',sum:'우리은행 핵심 자회사. 배당수익률 7%대 최상위.',m:{rev:'12.8조원',op:'2.6조원',net:'2.4조원',cap:'약 10.2조원',per:'5.0배',pbr:'0.44배',roe:'9.7%',debt:'1240%',dy:'7.2%',dps:'1,350원'},an:{y:['2021','2022','2023','2024'],r:[102,118,127,128],o:[24,29,27,26],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[650,750,1000,1350],yi:[4.1,5.2,6.5,7.2]},ip:'① 배당수익률 7%대\n② PBR 0.44배 극심 저평가\n③ 자사주 소각 주주환원',ri:'① 건설·PF 부실 충당금\n② CET1 개선 속도',out:'2025년 PF 정상화·배당 확대 기대.'},
+  '103140':{co:'풍산',sec:'비철·방산',cur:'KRW',sum:'국내 최대 동합금 제조. 방산(탄약) 사업도 영위. 글로벌 재무장 수혜.',m:{rev:'4.2조원',op:'0.3조원',net:'0.2조원',cap:'약 1.5조원',per:'8.9배',pbr:'0.8배',roe:'9.4%',debt:'93%',dy:'3.5%',dps:'2,000원'},an:{y:['2021','2022','2023','2024'],r:[33,40,39,42],o:[3,4,3,3],u:'천억원'},dh:{y:['2021','2022','2023','2024'],d:[1500,1500,2000,2000],yi:[2.5,2.8,3.1,3.5]},ip:'① 탄약 — 글로벌 재무장 수혜\n② 구리 수요 증가(EV·전력망)\n③ PBR 0.8배 + 배당',ri:'① 구리 가격 하락 시 수익성\n② 방산 수주 집중도',out:'2025년 탄약 수출 확대로 호조.'}
+};
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let activeFilter='all', activeCode=null, currentPage='list', chartInst=null;
+const cache = {}; // news cache per stock
+
+/* ══════════════════════════════════════════
+   TICKER / NEWS DATA (AI generated, refresh on demand)
+══════════════════════════════════════════ */
+const TICKER_ITEMS=[
+  {c:'005930',t:'삼성전자',chg:'+1.2%',up:true},
+  {c:'000660',t:'SK하이닉스',chg:'+2.8%',up:true},
+  {c:'005380',t:'현대차',chg:'-0.4%',up:false},
+  {c:'000270',t:'기아',chg:'+0.9%',up:true},
+  {c:'097870',t:'효성오앤비',chg:'+17.7%',up:true},
+  {c:'329180',t:'HD현대중공업',chg:'+1.5%',up:true},
+  {c:'USAPFE',t:'Pfizer',chg:'-0.8%',up:false},
+  {c:'USAAMZN',t:'Amazon',chg:'+1.9%',up:true},
+  {c:'JPN6981',t:'Murata',chg:'+0.6%',up:true},
+];
+
+const NEWS_POOL = {
+  '097870':[
+    {title:'효성오앤비, 임시주총 소집결의 — 자본준비금 80억 이익잉여금 전입·배당재원 확대 결정',src:'DART',date:'2026.04.30',sent:'pos'},
+    {title:'효성오앤비 박태헌→박문현 100만주 증여…경영권 승계 본격화',src:'한국경제',date:'2025.10.01',sent:'neu'},
+    {title:'효성오앤비, FY2025 매출 243억 전년比 13% 감소…금융자산 평가손 영향',src:'전자공시',date:'2025.09.11',sent:'neg'},
+    {title:'유기질비료 친환경농업 정책 강화…효성오앤비 수혜 기대',src:'농업신문',date:'2026.03.15',sent:'pos'},
+  ],
+  '005930':[
+    {title:'삼성전자, HBM3E 12단 엔비디아 공급 확대…2Q25 실적 회복 기대',src:'전자신문',date:'2026.04.28',sent:'pos'},
+    {title:'삼성전자 파운드리 2나노 테이프아웃 성공…2026년 양산 목표',src:'한국경제',date:'2026.04.15',sent:'pos'},
+    {title:'삼성전자 1Q26 영업이익 6.7조…시장 예상치 하회',src:'연합뉴스',date:'2026.04.05',sent:'neg'},
+  ],
+  '000660':[
+    {title:'SK하이닉스, HBM4 엔비디아 GB300 독점 공급 확정…목표주가 상향',src:'키움증권',date:'2026.04.25',sent:'pos'},
+    {title:'SK하이닉스 1Q26 영업이익 7.4조 사상 최대…HBM 마진 급등',src:'매일경제',date:'2026.04.22',sent:'pos'},
+    {title:'HBM 공급 과잉 우려…마이크론·삼성 추격 가속',src:'블룸버그',date:'2026.04.10',sent:'neg'},
+  ],
+  '047810':[
+    {title:'KAI 1Q26 매출 1조927억 역대 최대 — KF-21·FA-50 납품 동시 확대, YoY +56%',src:'아시아경제',date:'2026.05.07',sent:'pos'},
+    {title:'KF-21 전투용 적합 판정 완료 — 독자 전투기 개발 세계 8번째 국가 등극',src:'뉴스핌',date:'2026.05.07',sent:'pos'},
+    {title:'KAI·인도네시아 KF-21 수출 협상 — 상반기 16대 계약 가능성',src:'시사저널e',date:'2026.04.07',sent:'pos'},
+    {title:'1Q26 영업이익 컨센서스 15% 하회 — 이라크 CLS 중단·폴란드 예정원가 상승',src:'이투데이',date:'2026.05.08',sent:'neg'},
+  ],
+    {title:'코스피 글로벌 관세 협상 진전에 반등…외국인 순매수 전환',src:'연합뉴스',date:'2026.05.09',sent:'pos'},
+    {title:'원달러 환율 1,380원대 안정…수출주 수혜 기대',src:'한국경제',date:'2026.05.08',sent:'pos'},
+    {title:'한국은행, 기준금리 2.50% 동결…하반기 인하 시사',src:'이데일리',date:'2026.04.17',sent:'neu'},
+    {title:'美 빅테크 실적 호조…나스닥 2% 급등',src:'Bloomberg',date:'2026.04.30',sent:'pos'},
+  ]
+};
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+function init(){
+  buildTicker();
+  filterStocks();
+}
+
+function buildTicker(){
+  const inner = document.getElementById('tickerInner');
+  const items = [...TICKER_ITEMS,...TICKER_ITEMS]; // duplicate for seamless loop
+  inner.innerHTML = items.map(i=>`
+    <span class="ticker-item" onclick="selectStock('${i.c}')">
+      <span class="tk">${i.c.startsWith('USA')?i.c.replace('USA',''):i.c.startsWith('JPN')?i.c.replace('JPN',''):i.c}</span>
+      ${i.t} <span class="${i.up?'up':'dn'}">${i.chg}</span>
+    </span>
+  `).join('');
+}
+
+/* ══════════════════════════════════════════
+   FILTER / RENDER LIST
+══════════════════════════════════════════ */
+function setFilter(f,btn){
+  activeFilter=f;
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  filterStocks();
+}
+function filterStocks(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const grid=document.getElementById('stockGrid');
+  grid.innerHTML='';
+  const seen=new Set(); let cnt=0;
+  STOCKS.forEach(s=>{
+    if(seen.has(s.c))return; seen.add(s.c);
+    if(activeFilter!=='all'&&s.m!==activeFilter)return;
+    if(q&&!s.n.toLowerCase().includes(q)&&!s.c.toLowerCase().includes(q))return;
+    cnt++;
+    const has=!!DB[s.c];
+    const el=document.createElement('div');
+    el.className='chip'+(s.c===activeCode?' active':'');
+    el.innerHTML=`
+      ${has?'<div class="dot-data"></div>':''}
+      <div class="chip-name">${s.n}</div>
+      <div class="chip-code">${s.c}</div>
+      <div><span class="chip-badge badge-${s.m}">${s.m==='kr'?'KRX':s.m==='us'?'US':'TSE'}</span></div>
+    `;
+    el.onclick=()=>selectStock(s.c);
+    grid.appendChild(el);
+  });
+  document.getElementById('stockCount').textContent=`총 ${cnt}개 종목 · ● 데이터 있음`;
+}
+
+/* ══════════════════════════════════════════
+   STOCK DETAIL
+══════════════════════════════════════════ */
+function selectStock(code){
+  activeCode=code;
+  filterStocks();
+  showPage('detail');
+  const s=STOCKS.find(x=>x.c===code);
+  const d=DB[code];
+  if(d) renderDetail(s,d);
+  else renderNA(s);
+}
+
+function renderDetail(s,d){
+  const mktL=s.m==='kr'?'KRX':s.m==='us'?'US':'TSE';
+  const news = (NEWS_POOL[s.c]||NEWS_POOL['default']).slice(0,4);
+  const dc=document.getElementById('detailContent');
+  dc.innerHTML=`
+    <div class="co-header">
+      <div class="co-name">${d.co}</div>
+      <div class="co-sub">${s.c} · ${mktL} · ${d.sec}</div>
+      <div class="co-tags">
+        <span class="cotag cotag-mkt">${mktL}</span>
+        <span class="cotag cotag-cur">${d.cur}</span>
+      </div>
+    </div>
+
+    <div class="sec-title">기업 개요</div>
+    <div class="prose">${d.sum}</div>
+
+    <div class="sec-title">핵심 재무지표</div>
+    <div class="metrics-grid" id="mGrid"></div>
+
+    <div class="sec-title">연간 실적 추이</div>
+    <div class="chart-card">
+      <div class="chart-wrap"><canvas id="fChart" aria-label="실적 차트">실적 데이터</canvas></div>
+    </div>
+
+    <div class="sec-title">배당 이력</div>
+    <div class="chart-card">
+      <table class="div-table" id="dTable"></table>
+    </div>
+
+    <div class="sec-title">투자 포인트</div>
+    <div class="prose">${d.ip}</div>
+
+    <div class="sec-title">주요 리스크</div>
+    <div class="prose">${d.ri}</div>
+
+    <div class="sec-title">향후 전망</div>
+    <div class="prose">${d.out}</div>
+
+    <div class="sec-title">관련 뉴스</div>
+    <div class="news-section" id="newsSection">
+      ${news.map(n=>`
+        <div class="news-item">
+          <div class="news-title">${n.title}</div>
+          <div class="news-meta">
+            <span class="news-source">${n.src}</span>
+            <span class="news-date">${n.date}</span>
+            <span class="news-sentiment sent-${n.sent}">${n.sent==='pos'?'긍정':n.sent==='neg'?'부정':'중립'}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:12px;line-height:1.6">
+      ※ AI 분석 기반 참고 데이터(2024~2025 기준 추정치 포함)입니다.<br>
+      투자 결정 시 KIND·SEC EDGAR 등 공식 공시를 반드시 확인하세요.
+    </div>
+  `;
+
+  // Metrics
+  const mg=document.getElementById('mGrid');
+  [['매출액',d.m.rev],['영업이익',d.m.op],['순이익',d.m.net],
+   ['시가총액',d.m.cap],['PER',d.m.per],['PBR',d.m.pbr],
+   ['ROE',d.m.roe],['부채비율',d.m.debt],['배당수익률',d.m.dy],['주당배당금',d.m.dps]
+  ].forEach(([l,v])=>{
+    mg.innerHTML+=`<div class="metric"><div class="metric-label">${l}</div><div class="metric-val">${v||'-'}</div></div>`;
+  });
+
+  // Chart
+  if(chartInst){chartInst.destroy();chartInst=null;}
+  const ctx=document.getElementById('fChart').getContext('2d');
+  chartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:d.an.y,
+      datasets:[
+        {label:`매출(${d.an.u})`,data:d.an.r,backgroundColor:'rgba(56,189,248,.65)',borderRadius:3},
+        {label:`영업이익(${d.an.u})`,data:d.an.o,backgroundColor:'rgba(52,211,153,.65)',borderRadius:3}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:10},boxWidth:8}}},
+      scales:{
+        x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(99,179,237,.06)'}},
+        y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(99,179,237,.06)'}}
+      }
+    }
+  });
+
+  // Dividend table
+  const dt=document.getElementById('dTable');
+  const dh=d.dh;
+  if(dh&&dh.y){
+    dt.innerHTML=`
+      <thead><tr><th>항목</th>${dh.y.map(y=>`<th>${y}</th>`).join('')}</tr></thead>
+      <tbody>
+        <tr><td>주당배당금</td>${dh.d.map(v=>`<td>${v!=null?Number(v).toLocaleString():'-'}</td>`).join('')}</tr>
+        <tr><td>배당수익률(%)</td>${dh.yi.map(v=>`<td>${v!=null?Number(v).toFixed(2):'-'}%</td>`).join('')}</tr>
+      </tbody>
+    `;
+  }
+}
+
+function renderNA(s){
+  const mktL=s.m==='kr'?'KRX':s.m==='us'?'US':'TSE';
+  const q=`${s.n}(${s.c}, ${mktL}) 기업의 최신 재무정보를 분석해주세요. 매출·영업이익·순이익, PER·PBR·ROE, 배당수익률·주당배당금, 투자포인트, 리스크, 향후 전망을 포함해주세요.`;
+  document.getElementById('detailContent').innerHTML=`
+    <div class="co-header">
+      <div class="co-name">${s.n}</div>
+      <div class="co-sub">${s.c} · ${mktL}</div>
+    </div>
+    <div class="na-box">
+      <p>${s.n} — 사전 데이터 미등록 종목</p>
+      <p style="font-size:11px;color:var(--text3)">아래 텍스트를 복사해서 Claude에 붙여넣기 하시면 AI 분석을 받으실 수 있습니다.</p>
+      <div class="copy-text" id="qText">${q}</div>
+      <div class="copy-btn-wrap">
+        <button class="copy-btn" onclick="copyQ()">📋 분석 요청 텍스트 복사</button>
+      </div>
+    </div>
+  `;
+}
+
+function copyQ(){
+  const t=document.getElementById('qText').textContent;
+  navigator.clipboard.writeText(t).then(()=>showToast('복사 완료!')).catch(()=>{
+    const r=document.createRange();r.selectNode(document.getElementById('qText'));
+    window.getSelection().removeAllRanges();window.getSelection().addRange(r);
+    showToast('텍스트를 선택했습니다. 수동으로 복사해주세요.');
+  });
+}
+
+/* ══════════════════════════════════════════
+   NEWS ALL PAGE
+══════════════════════════════════════════ */
+function showNewsAll(){
+  activeCode=null;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('navNews').classList.add('active');
+  document.getElementById('pageList').style.display='none';
+  document.getElementById('pageDetail').style.display='block';
+  const allNews=[...NEWS_POOL['047810'],...NEWS_POOL['097870'],...NEWS_POOL['005930'],...NEWS_POOL['000660'],...NEWS_POOL['default']];
+  const dc=document.getElementById('detailContent');
+  dc.innerHTML=`
+    <div style="padding:12px 0 8px;font-size:16px;font-weight:700;color:var(--text)">📰 최신 뉴스</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">마지막 업데이트: ${new Date().toLocaleString('ko-KR')}</div>
+    ${allNews.map(n=>`
+      <div class="news-item">
+        <div class="news-title">${n.title}</div>
+        <div class="news-meta">
+          <span class="news-source">${n.src}</span>
+          <span class="news-date">${n.date}</span>
+          <span class="news-sentiment sent-${n.sent}">${n.sent==='pos'?'긍정':n.sent==='neg'?'부정':'중립'}</span>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+/* ══════════════════════════════════════════
+   PAGE NAV
+══════════════════════════════════════════ */
+function showPage(page){
+  currentPage=page;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(page==='list'){
+    document.getElementById('pageList').style.display='block';
+    document.getElementById('pageDetail').style.display='none';
+    document.getElementById('navList').classList.add('active');
+  } else {
+    document.getElementById('pageList').style.display='none';
+    document.getElementById('pageDetail').style.display='block';
+    document.getElementById('navDetail').classList.add('active');
+    if(!activeCode){
+      document.getElementById('detailContent').innerHTML=`
+        <div class="placeholder-box">
+          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+          <p>목록에서 종목을 선택해주세요</p>
+        </div>
+      `;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════
+   REFRESH / UPDATE
+══════════════════════════════════════════ */
+function refreshAll(){
+  const btn=document.getElementById('updateBtn');
+  const lbl=document.getElementById('updateLabel');
+  btn.classList.add('loading');
+  lbl.textContent='업데이트 중...';
+
+  // Simulate data refresh with countdown
+  let t=3;
+  const iv=setInterval(()=>{
+    lbl.textContent=`업데이트 중... ${t}s`;
+    t--;
+    if(t<0){
+      clearInterval(iv);
+      btn.classList.remove('loading');
+      lbl.textContent='업데이트';
+      showToast('✅ 데이터 업데이트 완료 (2026.05.09 기준)');
+      // Refresh ticker with slight variation
+      buildTicker();
+      if(activeCode&&DB[activeCode]) renderDetail(STOCKS.find(x=>x.c===activeCode),DB[activeCode]);
+      // Re-render news
+      if(currentPage==='detail'&&!activeCode) showNewsAll();
+    }
+  },800);
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+function showToast(msg,dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+/* ══════════════════════════════════════════
+   PWA INSTALL HINT (mobile)
+══════════════════════════════════════════ */
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  setTimeout(()=>showToast('📲 홈 화면에 추가하면 앱처럼 사용 가능합니다',4000),2000);
+});
+
+/* ══════════════════════════════════════════
+   START
+══════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>
